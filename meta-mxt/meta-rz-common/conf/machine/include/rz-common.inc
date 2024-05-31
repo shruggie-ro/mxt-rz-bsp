@@ -13,8 +13,6 @@ IMAGE_FSTYPES:append = " tar.bz2 ext4"
 
 SERIAL_CONSOLES = "115200;ttySC0"
 
-IMAGE_BOOT_FILES = " ${KERNEL_IMAGETYPE} ${KERNEL_DEVICETREE} "
-
 # Configuration for ARM Trusted Firmware
 EXTRA_IMAGEDEPENDS += " trusted-firmware-a"
 
