@@ -24,6 +24,7 @@ SRC_URI = " \
 "
 
 KBUILD_DEFCONFIG = "defconfig"
+KCONFIG_MODE = "alldefconfig"
 
 # Functionality flags
 KERNEL_FEATURES = ""
