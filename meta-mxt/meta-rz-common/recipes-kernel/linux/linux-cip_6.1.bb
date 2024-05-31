@@ -21,6 +21,10 @@ KCONF_BSP_AUDIT_LEVEL = "1"
 
 SRC_URI = " \
 	git://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git;branch=${KBRANCH};name=machine \
+	file://fragment-01-usb-ethernet.cfg \
+	file://fragment-02-wifi.cfg \
+	file://fragment-03-eth-phy.cfg \
+	file://fragment-04-lontium-lt8912b.cfg \
 "
 
 KBUILD_DEFCONFIG = "defconfig"
