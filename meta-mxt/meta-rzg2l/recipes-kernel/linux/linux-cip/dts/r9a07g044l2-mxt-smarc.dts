@@ -107,6 +107,7 @@
 				reg = <0>;
 				dsi_hdmi_bridge_in: endpoint@0 {
 					data-lanes = <0 1 2 3>;
+					lane-polarities = <1 1 1 1>;
 					remote-endpoint = <&dsi0_out>;
 				};
 			};
@@ -156,6 +157,8 @@
 };
 
 &i2c3 {
+	status = "disabled";
+
 	/delete-node/ raa215300@12;
 	/delete-node/ isl1208@6f;
 };
