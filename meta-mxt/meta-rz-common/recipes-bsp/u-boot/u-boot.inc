@@ -201,7 +201,7 @@ do_install () {
 
 }
 
-FILES_${PN} = "/boot ${sysconfdir}"
+FILES:${PN} = "/boot ${sysconfdir}"
 
 SYSROOT_DIRS_rzg2l += "/boot"
 

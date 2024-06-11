@@ -46,7 +46,7 @@ FLASH_ADDRESS_FIP_rzv2l-dev = "1D200"
 
 PMIC_BUILD_DIR = "${S}/build_pmic"
 
-FILES_${PN} = "/boot "
+FILES:${PN} = "/boot "
 SYSROOT_DIRS += "/boot"
 
 DEPENDS:append = " \
