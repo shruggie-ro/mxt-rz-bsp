@@ -28,7 +28,7 @@ IMAGE_INSTALL:append = " \
     libdrm \
     libdrm-tests \
     yavta \
-    kernel-module-uvcvideo \
+    kernel-modules \
     watchdog \
 "
 
