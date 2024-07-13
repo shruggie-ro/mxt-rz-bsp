@@ -25,6 +25,7 @@ SRC_URI = " \
 	file://fragment-02-wifi.cfg \
 	file://fragment-03-eth-phy.cfg \
 	file://fragment-04-lontium-lt8912b.cfg \
+	file://fragment-05-camera-sensors.cfg \
 	file://0001-drm-bridge-lt8912b-add-support-for-lane-polarities-p.patch \
 "
 
