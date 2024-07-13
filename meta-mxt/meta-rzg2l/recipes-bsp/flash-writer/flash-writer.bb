@@ -33,6 +33,9 @@ do_compile() {
 	elif [ "${MACHINE}" = "smarc-rzv2l" ]; then
 		BOARD="RZV2L_SMARC";
 		PMIC_BOARD="RZV2L_SMARC_PMIC";
+	elif [ "${MACHINE}" = "vision-ai-rzv2l" ]; then
+		BOARD="RZV2L_SMARC";
+		PMIC_BOARD="RZV2L_SMARC_PMIC";
 	elif [ "${MACHINE}" = "rzv2l-dev" ]; then
 		BOARD="RZV2L_15MMSQ_DEV";
         fi
