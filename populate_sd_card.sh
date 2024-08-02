@@ -8,7 +8,7 @@ contains() {
 	[[ $1 =~ (^|[[:space:]])$2($|[[:space:]]) ]] && return 0 || return 1
 }
 
-SUPPORTED_DEVICES="smarc-rzg2l smarc-rzv2l"
+SUPPORTED_DEVICES="smarc-rzg2l smarc-rzv2l vision-ai-rzv2l"
 
 usage_check() {
 	if [ -z "$1" ] ; then
@@ -106,6 +106,37 @@ populate_sd_card_single_rootfs() {
 
 	echo "== Done... =="
 }
+populate_sd_card_rootfs() {
+	local devname="$1"
+	local PSUF
+	local TMP="/tmp"
+
+	local mount_dir1="${TMP}/mount_work1/"
+
+	mkdir -p ${mount_dir1}
+
+	if [[ $devname == /dev/mmcblk* ]] ; then
+		PSUF=p
+	fi
+
+	echo == Unmounting partitions first ==
+	sudo umount ${devname}${PSUF}1 &> /dev/null || true
+
+	# Populate rootfs
+	echo "== Populating rootfs partition '${devname}${PSUF}1' =="
+	sudo mount ${devname}${PSUF}1 ${mount_dir1}
+	untar_roofs "${mount_dir1}"
+
+	echo "== Syncing... =="
+
+	sudo sync
+
+	echo == Unmounting partitions \(almost done\) ==
+	sudo umount ${devname}${PSUF}1
+
+	echo "== Done... =="
+}
+
 
 populate_sd_card_rootfs_and_fat() {
 	local devname="$1"
@@ -158,8 +189,19 @@ echo "=================================================================="
 read ans
 
 DEVICE="$1"
+if [ "$DEVICE" = "vision-ai-rzv2l" ] ; then
+	populate_sd_card_rootfs "$2"
+else
+	echo "Unsupported device $DEVICE"
+	exit 1
+fi
+
+DEVICE="$1"
 if [ "$DEVICE" = "smarc-rzg2l" ] ; then
-	populate_sd_card_rootfs_and_fat "$2"
+        populate_sd_card_rootfs_and_fat "$2"
 elif [ "$DEVICE" = "smarc-rzv2l" ] ; then
-	populate_sd_card_rootfs_and_fat "$2"
+        populate_sd_card_rootfs_and_fat "$2"
+else
+        echo "Unsupported device $DEVICE"
+        exit 1
 fi
