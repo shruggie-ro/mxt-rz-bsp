@@ -106,6 +106,7 @@ populate_sd_card_single_rootfs() {
 
 	echo "== Done... =="
 }
+
 populate_sd_card_rootfs() {
 	local devname="$1"
 	local PSUF
@@ -133,7 +134,6 @@ populate_sd_card_rootfs() {
 
 	echo == Unmounting partitions \(almost done\) ==
 	sudo umount ${devname}${PSUF}1
-
 	echo "== Done... =="
 }
 
@@ -198,10 +198,10 @@ fi
 
 DEVICE="$1"
 if [ "$DEVICE" = "smarc-rzg2l" ] ; then
-        populate_sd_card_rootfs_and_fat "$2"
+	populate_sd_card_rootfs_and_fat "$2"
 elif [ "$DEVICE" = "smarc-rzv2l" ] ; then
-        populate_sd_card_rootfs_and_fat "$2"
+	populate_sd_card_rootfs_and_fat "$2"
 else
-        echo "Unsupported device $DEVICE"
-        exit 1
+    echo "Unsupported device $DEVICE"
+    exit 1
 fi
