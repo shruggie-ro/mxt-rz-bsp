@@ -202,6 +202,6 @@ if [ "$DEVICE" = "smarc-rzg2l" ] ; then
 elif [ "$DEVICE" = "smarc-rzv2l" ] ; then
 	populate_sd_card_rootfs_and_fat "$2"
 else
-    echo "Unsupported device $DEVICE"
-    exit 1
+	echo "Unsupported device $DEVICE"
+	exit 1
 fi
