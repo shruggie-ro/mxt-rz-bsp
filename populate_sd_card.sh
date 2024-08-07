@@ -189,18 +189,12 @@ echo "=================================================================="
 read ans
 
 DEVICE="$1"
-if [ "$DEVICE" = "vision-ai-rzv2l" ] ; then
-	populate_sd_card_rootfs "$2"
-else
-	echo "Unsupported device $DEVICE"
-	exit 1
-fi
-
-DEVICE="$1"
 if [ "$DEVICE" = "smarc-rzg2l" ] ; then
 	populate_sd_card_rootfs_and_fat "$2"
 elif [ "$DEVICE" = "smarc-rzv2l" ] ; then
 	populate_sd_card_rootfs_and_fat "$2"
+elif [ "$DEVICE" = "vision-ai-rzv2l" ] ; then
+	populate_sd_card_rootfs "$2"
 else
 	echo "Unsupported device $DEVICE"
 	exit 1
