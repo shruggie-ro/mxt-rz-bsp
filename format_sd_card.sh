@@ -8,7 +8,7 @@ contains() {
 	[[ $1 =~ (^|[[:space:]])$2($|[[:space:]]) ]] && return 0 || return 1
 }
 
-SUPPORTED_DEVICES="smarc-rzg2l smarc-rzv2l"
+SUPPORTED_DEVICES="smarc-rzg2l smarc-rzv2l vision-ai-rzv2l"
 
 usage_check() {
 	if [ -z "$1" ] ; then
@@ -141,4 +141,9 @@ if [ "$DEVICE" = "smarc-rzg2l" ] ; then
 	format_sd_card_fat_and_rootfs "$2"
 elif [ "$DEVICE" = "smarc-rzv2l" ] ; then
 	format_sd_card_fat_and_rootfs "$2"
+elif [ "$DEVICE" = "vision-ai-rzv2l" ] ; then
+	format_sd_card_single_rootfs "$2"
+else
+	echo "Unsupported device $DEVICE"
+	exit 1
 fi
