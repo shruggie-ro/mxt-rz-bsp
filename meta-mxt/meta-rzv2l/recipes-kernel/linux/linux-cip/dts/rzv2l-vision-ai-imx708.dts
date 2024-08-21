@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/*
+ * Device Tree Source for the RZ/G2L SMARC EVK board
+ *
+ * Copyright (C) 2021 Renesas Electronics Corp.
+ */
+
+/dts-v1/;
+#include "rzv2l-vision-ai.dts"
+
+#if CAMERA_SUPPORT_NOT_READY_YET
+
+&i2c1 {
+	pinctrl-0 = <&i2c1_pins>;
+	pinctrl-names = "default";
+
+	status = "okay";
+
+	imx708: imx708@1a {
+		compatible = "sony,imx708";
+		reg = <0x1a>;
+		clock-names = "xclk";
+		clocks = <&clk_ext_camera>;
+		clock-frequency = <24000000>;
+		VANA1-supply = <&cam1_2v8_supply>;
+		VANA2-supply = <&cam1_1v8_supply>;
+		VDIG-supply = <&cam1_1v1_supply>;
+		VDDL-supply = <&cam1_1v8_supply>;
+
+		port {
+			cam1_to_csi: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <450000000>;
+				remote-endpoint = <&csi2_in>;
+			};
+		};
+	};
+
+};
+
+&csi2 {
+	status = "okay";
+
+	ports {
+		port {
+			csi2_in: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				remote-endpoint = <&cam1_to_csi>;
+			};
+		};
+	};
+};
+
+#endif
