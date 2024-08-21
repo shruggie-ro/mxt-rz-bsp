@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/*
+ * Device Tree Source for the RZ/G2L SMARC EVK board
+ *
+ * Copyright (C) 2021 Renesas Electronics Corp.
+ */
+
+/dts-v1/;
+#include "rzv2l-vision-ai.dts"
+
+#if CAMERA_SUPPORT_NOT_READY_YET
+
+&i2c1 {
+	pinctrl-0 = <&i2c1_pins>;
+	pinctrl-names = "default";
+
+	status = "okay";
+
+	tevs: camera@48 {
+		compatible = "tn,tevs";
+		reg = <0x48>;
+
+		reset-gpios = <&pinctrl RZG2L_GPIO(42, 3) GPIO_ACTIVE_LOW>;
+		continuous-clock = <0>;
+		data-lanes = <2>;
+		data-frequency = <800>;
+		hw-reset; // keep the camera off, when unused
+
+		port {
+			cam1_to_csi: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				remote-endpoint = <&csi2_in>;
+			};
+		};
+	};
+
+};
+
+&csi2 {
+	status = "okay";
+
+	ports {
+		port {
+			csi2_in: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				remote-endpoint = <&cam1_to_csi>;
+			};
+		};
+	};
+};
+
+#endif
