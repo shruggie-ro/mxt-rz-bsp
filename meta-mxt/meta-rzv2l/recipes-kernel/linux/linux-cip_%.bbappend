@@ -16,9 +16,9 @@ KERNEL_DEVICETREE:append = " \
 "
 
 SRC_URI:append = " \
-    file://dts/ \
+    file://rzv2l-dts/ \
 "
 
 do_compile:prepend() {
-    cp -rf ${WORKDIR}/dts/* ${S}/arch/arm64/boot/dts/renesas/
+    cp -rf ${WORKDIR}/rzv2l-dts/* ${S}/arch/arm64/boot/dts/renesas/
 }
