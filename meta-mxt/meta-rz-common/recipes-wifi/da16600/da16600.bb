@@ -34,3 +34,6 @@ FILES:${PN} = " \
 	${nonarch_base_libdir}/firmware/lmacfw_spi.bin \
 	${nonarch_base_libdir}/modules/${KERNEL_VERSION}/extra/rswlan.ko \
 "
+
+KERNEL_MODULE_AUTOLOAD += "rswlan"
+KERNEL_MODULE_PROBECONF += "rswlan"
