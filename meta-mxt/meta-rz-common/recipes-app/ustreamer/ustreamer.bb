@@ -1,6 +1,6 @@
 SUMMARY = "µStreamer - Lightweight and fast MJPEG-HTTP streamer"
 SECTION = "app"
-LICENSE = "GPL-3.0"
+LICENSE = "GPL-3.0-only"
 #" GPL-3.0 license"
 LIC_FILES_CHKSUM = " \
 	file://LICENSE;md5=d32239bcb673463ab874e80d47fae504 \
@@ -30,7 +30,7 @@ do_install() {
 SYSTEMD_AUTO_ENABLE = "disable"
 SYSTEMD_SERVICE_${PN} = "ustreamer@.service"
 
-FILES_${PN} = " \
+FILES:${PN} = " \
 	${systemd_unitdir}/* \
 	${bindir}/* \
 "
