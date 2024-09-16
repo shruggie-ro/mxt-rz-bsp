@@ -26,6 +26,9 @@ do_install() {
 
 	install -m 0755 -d ${D}/${nonarch_base_libdir}/modules/${KERNEL_VERSION}/extra
 	install -m 0644 ${WORKDIR}/rswlan/rswlan.ko ${D}/${nonarch_base_libdir}/modules/${KERNEL_VERSION}/extra/rswlan.ko
+
+	install -m 0755 -d ${D}${sysconfdir}/modules-load.d
+	echo -n "rswlan" > ${D}${sysconfdir}/modules-load.d/rswlan.conf
 }
 
 RPROVIDES:${PN} += "kernel-module-rswlan-${KERNEL_VERSION}"
@@ -33,6 +36,7 @@ RPROVIDES:${PN} += "kernel-module-rswlan-${KERNEL_VERSION}"
 FILES:${PN} = " \
 	${nonarch_base_libdir}/firmware/lmacfw_spi.bin \
 	${nonarch_base_libdir}/modules/${KERNEL_VERSION}/extra/rswlan.ko \
+	${sysconfdir}/modules-load.d/rswlan.conf \
 "
 
 KERNEL_MODULE_AUTOLOAD += "rswlan"
