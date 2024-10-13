@@ -14,6 +14,7 @@ usage_check() {
 	if [ -z "$1" ] ; then
 		echo "No device-name specified"
 		echo "Usage: $0 <device-name> <sd-card-device> [Yocto-Deploy-Dir - defaults to '$DEFAULT_YOCTO_DIR']"
+		echo "Supported list is '$SUPPORTED_DEVICES'"
 		exit 1
 	fi
 	if ! contains "$SUPPORTED_DEVICES" "$1" ; then
@@ -24,6 +25,7 @@ usage_check() {
 	if [ -z "$2" ] ; then
 		echo "No SD card device provided"
 		echo "Usage: $0 <device-name> <sd-card-device> [Yocto-Deploy-Dir - defaults to '$DEFAULT_YOCTO_DIR']"
+		echo "Supported list is '$SUPPORTED_DEVICES'"
 		exit 1
 	fi
 	if [ ! -e "$2" ] ; then
