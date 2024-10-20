@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /*
- * Device Tree Source for the RZ/G2L SMARC EVK board
+ * Device Tree Source for the RZ/V2L Vision AI board
  *
- * Copyright (C) 2021 Renesas Electronics Corp.
+ * Copyright (C) 2024 MXT Creation SRL
  */
 
 /dts-v1/;
@@ -47,37 +47,6 @@
 		size = <0x4000000>; // 64MiB
 		dma-coherent;
 		memory-region = <&image_buf0>;
-	};
-
-	cam1_1v8_supply: 1p8v {
-		compatible = "regulator-fixed";
-		regulator-name = "cam1_1v8_supply";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		regulator-always-on;
-	};
-
-	cam1_2v8_supply: 2p8v {
-		compatible = "regulator-fixed";
-		regulator-name = "cam1_2v8_supply";
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-		gpios = <&pinctrl RZG2L_GPIO(42, 3) 0>;
-		startup-delay-us = <300000>;
-	};
-
-	cam1_1v2_supply: 1p2v {
-		compatible = "regulator-fixed";
-		regulator-name = "cam1_1v2_supply";
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-		regulator-always-on;
-	};
-
-	clk_ext_camera: clk_ext_camera {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <24000000>;
 	};
 
 	/delete-node/ sound;
@@ -179,18 +148,6 @@
 &ssi1 {
 	status = "disabled";
 };
-
-#if CAMERA_AND_DISPLAY_NOT_READY_YET
-
-&du {
-	status = "disabled";
-};
-
-&cru {
-	status = "okay";
-};
-
-#endif
 
 &dsi {
 	status = "disabled";
