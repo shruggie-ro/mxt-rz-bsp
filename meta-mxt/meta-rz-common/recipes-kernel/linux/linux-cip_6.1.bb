@@ -27,6 +27,9 @@ SRC_URI = " \
 	file://fragment-04-lontium-lt8912b.cfg \
 	file://fragment-05-camera-sensors.cfg \
 	file://0001-drm-bridge-lt8912b-add-support-for-lane-polarities-p.patch \
+	file://0002-rzg2l-cru-backport-driver-from-upstream-kernel.patch \
+	file://0003-clk-rzg2l-cpg-backport-support-from-upstream-kernel.patch \
+	file://0004-media-rzg2l-cru-port-stuff-from-Renesas-BSP-driver.patch \
 "
 
 KBUILD_DEFCONFIG = "defconfig"
