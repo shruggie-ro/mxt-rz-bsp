@@ -1,0 +1,808 @@
+From 269ed12765e2e14bbf6219d9ccbe61972b60992b Mon Sep 17 00:00:00 2001
+From: Alexandru Ardelean <alex@shruggie.ro>
+Date: Sat, 19 Oct 2024 19:51:08 +0300
+Subject: [PATCH] media: rzg2l-cru: port stuff from Renesas BSP driver
+
+Signed-off-by: Alexandru Ardelean <alex@shruggie.ro>
+---
+ .../platform/renesas/rzg2l-cru/rzg2l-csi2.c   |  20 +-
+ .../platform/renesas/rzg2l-cru/rzg2l-ip.c     |  14 +-
+ .../platform/renesas/rzg2l-cru/rzg2l-video.c  | 547 +++++++++++++++++-
+ 3 files changed, 552 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/media/platform/renesas/rzg2l-cru/rzg2l-csi2.c b/drivers/media/platform/renesas/rzg2l-cru/rzg2l-csi2.c
+index 384fb54e2..67e26563e 100644
+--- a/drivers/media/platform/renesas/rzg2l-cru/rzg2l-csi2.c
++++ b/drivers/media/platform/renesas/rzg2l-cru/rzg2l-csi2.c
+@@ -183,12 +183,19 @@ static const struct rzg2l_csi2_timings rzg2l_csi2_global_timings[] = {
+ 
+ struct rzg2l_csi2_format {
+ 	u32 code;
+-	unsigned int datatype;
+ 	unsigned int bpp;
+ };
+ 
+ static const struct rzg2l_csi2_format rzg2l_csi2_formats[] = {
+-	{ .code = MEDIA_BUS_FMT_UYVY8_1X16,	.datatype = 0x1e, .bpp = 16 },
++	{ .code = MEDIA_BUS_FMT_UYVY8_1X16,	.bpp = 16 },
++	{ .code = MEDIA_BUS_FMT_SRGGB10_1X10,	.bpp = 10 },
++	{ .code = MEDIA_BUS_FMT_SGRBG10_1X10,	.bpp = 10 },
++	{ .code = MEDIA_BUS_FMT_SGBRG10_1X10,	.bpp = 10 },
++	{ .code = MEDIA_BUS_FMT_SBGGR10_1X10,	.bpp = 10 },
++	{ .code = MEDIA_BUS_FMT_SRGGB12_1X12,	.bpp = 12 },
++	{ .code = MEDIA_BUS_FMT_SGRBG12_1X12,	.bpp = 12 },
++	{ .code = MEDIA_BUS_FMT_SGBRG12_1X12,	.bpp = 12 },
++	{ .code = MEDIA_BUS_FMT_SBGGR12_1X12,	.bpp = 12 },
+ };
+ 
+ static inline struct rzg2l_csi2 *sd_to_csi2(struct v4l2_subdev *sd)
+@@ -402,11 +409,11 @@ static void rzg2l_csi2_mipi_link_disable(struct rzg2l_csi2 *csi2)
+ 	rzg2l_csi2_write(csi2, CSI2nRTCT, CSI2nRTCT_VSRST);
+ 
+ 	/* Make sure CSI2nRTST.VSRSTS bit is cleared */
+-	while (--timeout) {
++	while (timeout--) {
+ 		if (!(rzg2l_csi2_read(csi2, CSI2nRTST) & CSI2nRTST_VSRSTS))
+ 			break;
+ 		usleep_range(100, 200);
+-	}
++	};
+ 
+ 	if (!timeout)
+ 		dev_err(csi2->dev, "Clearing CSI2nRTST.VSRSTS timed out\n");
+@@ -594,6 +601,7 @@ static const struct v4l2_subdev_ops rzg2l_csi2_subdev_ops = {
+ 	.pad	= &rzg2l_csi2_pad_ops,
+ };
+ 
++
+ /* -----------------------------------------------------------------------------
+  * Async handling and registration of subdevices and links.
+  */
+@@ -755,12 +763,11 @@ static int rzg2l_csi2_probe(struct platform_device *pdev)
+ 		return dev_err_probe(&pdev->dev, PTR_ERR(csi2->sysclk),
+ 				     "Failed to get system clk\n");
+ 
+-	vclk = clk_get(&pdev->dev, "video");
++	vclk = devm_clk_get(&pdev->dev, "video");
+ 	if (IS_ERR(vclk))
+ 		return dev_err_probe(&pdev->dev, PTR_ERR(vclk),
+ 				     "Failed to get video clock\n");
+ 	csi2->vclk_rate = clk_get_rate(vclk);
+-	clk_put(vclk);
+ 
+ 	csi2->dev = &pdev->dev;
+ 
+@@ -857,6 +864,7 @@ static const struct of_device_id rzg2l_csi2_of_table[] = {
+ 	{ .compatible = "renesas,rzg2l-csi2", },
+ 	{ /* sentinel */ }
+ };
++MODULE_DEVICE_TABLE(of, rzg2l_csi2_of_table);
+ 
+ static struct platform_driver rzg2l_csi2_pdrv = {
+ 	.remove	= rzg2l_csi2_remove,
+diff --git a/drivers/media/platform/renesas/rzg2l-cru/rzg2l-ip.c b/drivers/media/platform/renesas/rzg2l-cru/rzg2l-ip.c
+index 4dcd2faff..cccd1173c 100644
+--- a/drivers/media/platform/renesas/rzg2l-cru/rzg2l-ip.c
++++ b/drivers/media/platform/renesas/rzg2l-cru/rzg2l-ip.c
+@@ -5,16 +5,24 @@
+  * Copyright (C) 2022 Renesas Electronics Corp.
+  */
+ 
++#include <linux/delay.h>
+ #include "rzg2l-cru.h"
+ 
+ struct rzg2l_cru_ip_format {
+ 	u32 code;
+-	unsigned int datatype;
+ 	unsigned int bpp;
+ };
+ 
+ static const struct rzg2l_cru_ip_format rzg2l_cru_ip_formats[] = {
+-	{ .code = MEDIA_BUS_FMT_UYVY8_1X16,	.datatype = 0x1e, .bpp = 16 },
++	{ .code = MEDIA_BUS_FMT_UYVY8_1X16,	.bpp = 16 },
++	{ .code = MEDIA_BUS_FMT_SRGGB10_1X10,	.bpp = 10 },
++	{ .code = MEDIA_BUS_FMT_SGRBG10_1X10,	.bpp = 10 },
++	{ .code = MEDIA_BUS_FMT_SGBRG10_1X10,	.bpp = 10 },
++	{ .code = MEDIA_BUS_FMT_SBGGR10_1X10,	.bpp = 10 },
++	{ .code = MEDIA_BUS_FMT_SRGGB12_1X12,	.bpp = 12 },
++	{ .code = MEDIA_BUS_FMT_SGRBG12_1X12,	.bpp = 12 },
++	{ .code = MEDIA_BUS_FMT_SGBRG12_1X12,	.bpp = 12 },
++	{ .code = MEDIA_BUS_FMT_SBGGR12_1X12,	.bpp = 12 },
+ };
+ 
+ enum rzg2l_csi2_pads {
+@@ -71,6 +79,7 @@ static int rzg2l_cru_ip_s_stream(struct v4l2_subdev *sd, int enable)
+ 		if (ret)
+ 			return ret;
+ 
++		fsleep(1000);
+ 		ret = rzg2l_cru_start_image_processing(cru);
+ 		if (ret) {
+ 			v4l2_subdev_call(cru->ip.remote, video, post_streamoff);
+@@ -202,6 +211,7 @@ static const struct v4l2_subdev_ops rzg2l_cru_ip_subdev_ops = {
+ 	.pad = &rzg2l_cru_ip_pad_ops,
+ };
+ 
++
+ static const struct media_entity_operations rzg2l_cru_ip_entity_ops = {
+ 	.link_validate = v4l2_subdev_link_validate,
+ };
+diff --git a/drivers/media/platform/renesas/rzg2l-cru/rzg2l-video.c b/drivers/media/platform/renesas/rzg2l-cru/rzg2l-video.c
+index e6eedd65b..009a95c0a 100644
+--- a/drivers/media/platform/renesas/rzg2l-cru/rzg2l-video.c
++++ b/drivers/media/platform/renesas/rzg2l-cru/rzg2l-video.c
+@@ -28,34 +28,59 @@
+ 
+ /* CRU Interrupt Enable Register */
+ #define CRUnIE				0x4
++#define CRUnIE_FOE			BIT(0)
++#define CRUnIE_SLVEE			BIT(1)
++#define CRUnIE_DECEE			BIT(2)
++#define CRUnIE_FEOVWE			BIT(3)
++#define CRUnIE_SFE			BIT(16)
+ #define CRUnIE_EFE			BIT(17)
++#define CRUnIE_SIE			BIT(18)
++#define CRUnIE_WIE			BIT(19)
++#define CRUnIE_CEE			BIT(20)
+ 
+ /* CRU Interrupt Status Register */
+ #define CRUnINTS			0x8
++#define CRUnINTS_FOS			BIT(0)
++#define CRUnINTS_SLVES			BIT(1)
++#define CRUnINTS_DECES			BIT(2)
++#define CRUnINTS_FEOVWS			BIT(3)
+ #define CRUnINTS_SFS			BIT(16)
++#define CRUnINTS_EFS			BIT(17)
++#define CRUnINTS_SIS			BIT(18)
++#define CRUnINTS_WIS			BIT(19)
++#define CRUnINTS_CES			BIT(20)
+ 
+ /* CRU Reset Register */
+-#define CRUnRST				0xc
++#define CRUnRST				0xC
+ #define CRUnRST_VRESETN			BIT(0)
++/* CRU General Read/Write Register */
++#define CRUnCOM				0x80
++#define CRUnCOM_COMMON(x)		((x) << 0)
+ 
+ /* Memory Bank Base Address (Lower) Register for CRU Image Data */
+ #define AMnMBxADDRL(x)			(0x100 + ((x) * 8))
+ 
+ /* Memory Bank Base Address (Higher) Register for CRU Image Data */
+ #define AMnMBxADDRH(x)			(0x104 + ((x) * 8))
++/* UV Data Address Offset (Lower/Higher) Register for CRU Image Data */
++#define AMnUVAOFL			0x140
++#define AMnUVAOFH			0x144
+ 
+ /* Memory Bank Enable Register for CRU Image Data */
+ #define AMnMBVALID			0x148
+ #define AMnMBVALID_MBVALID(x)		GENMASK(x, 0)
+ 
+ /* Memory Bank Status Register for CRU Image Data */
+-#define AMnMBS				0x14c
++#define AMnMBS				0x14C
+ #define AMnMBS_MBSTS			0x7
++/* AXI Master FIFO Setting Register for CRU Image Data */
++#define AMnFIFO				0x160
+ 
+ /* AXI Master FIFO Pointer Register for CRU Image Data */
+ #define AMnFIFOPNTR			0x168
+ #define AMnFIFOPNTR_FIFOWPNTR		GENMASK(7, 0)
+ #define AMnFIFOPNTR_FIFORPNTR_Y		GENMASK(23, 16)
++#define AMnFIFOPNTR_FIFORPNTR_UV	GENMASK(31, 24)
+ 
+ /* AXI Master Transfer Stop Register for CRU Image Data */
+ #define AMnAXISTP			0x174
+@@ -65,25 +90,183 @@
+ #define AMnAXISTPACK			0x178
+ #define AMnAXISTPACK_AXI_STOP_ACK	BIT(0)
+ 
++/* Memory Bank Base Address (Lower) Register for CRU Statistics Data */
++#define AMnSDMBxADDRL(x)		(0x190 + ((x) * 8))
++
++/* Memory Bank Base Address (Higher) Register for CRU Statistics Data */
++#define AMnSDMBxADDRH(x)		(0x194 + ((x) * 8))
++
++/* Memory Bank Enable Register for CRU Image Data */
++#define AMnSDMBVALID			0x1D0
++#define AMnSDMBVALID_SDMBVALID(x)	GENMASK(x, 0)
++
++/* Memory Bank Status Register for CRU Image Data */
++#define AMnSDMBS			0x1D4
++#define AMnSDMBS_SDMBSTS		0x7
++
++/* AXI Master Transfer Constant Register for CRU Statistics data */
++#define AMnSDAXIATTR			0x1D8
++#define AMnSDAXIATTR_SDAXILEN(x)	(x)
++
++/* AXI Master FIFO Pointer Register for CRU Statistics Data */
++#define AMnSDFIFOPNTR			0x1E8
++#define AMnSDFIFOPNTR_SDFIFOWPNTR	GENMASK(4, 0)
++#define AMnSDFIFOPNTR_SDFIFORPNTR	GENMASK(20, 16)
++
++/* AXI Master Transfer Stop Register for CRU Image Data */
++#define AMnSDAXISTP			0x1F4
++#define AMnSDAXISTP_SDAXI_STOP		BIT(0)
++
++/* AXI Master Transfer Stop Status Register for CRU Image Data */
++#define AMnSDAXISTPACK			0x1F8
++#define AMnSDAXISTPACK_SDAXI_STOP_ACK	BIT(0)
+ /* CRU Image Processing Enable Register */
+ #define ICnEN				0x200
+ #define ICnEN_ICEN			BIT(0)
++/* CRU Image Processing Register Setting Change Control Register */
++#define ICnREGC				0x204
++#define ICnREGC_REFEN			BIT(0)
+ 
+ /* CRU Image Processing Main Control Register */
+ #define ICnMC				0x208
++#define ICnMC_ICTHR			BIT(0)
++#define ICnMC_DECTHR			BIT(1)
++#define ICnMC_CLPTHR			BIT(2)
++#define ICnMC_DEMTHR			BIT(3)
++#define ICnMC_LMXTHR			BIT(4)
+ #define ICnMC_CSCTHR			BIT(5)
+-#define ICnMC_INF_YUV8_422		(0x1e << 16)
++#define ICnMC_LUTTHR			(0 << 6)
++#define ICnMC_STITHR			BIT(7)
++#define ICnMC_CLP_NOY_CLPUV		(0 << 12)
++#define ICnMC_CLP_YUV			(1 << 12)
++#define ICnMC_CLP_NOY_CLPUV_128		(2 << 12)
++#define ICnMC_CLP_NOCLP			(3 << 12)
++#define ICnMC_IBINSEL_STRAIGHT		(0 << 14)
++#define ICnMC_IBINSEL_COMP		BIT(14)
++#define ICnMC_INF_YUV8_422		(0x1E << 16)
++#define ICnMC_INF_YUV10_422		(0x1F << 16)
++#define ICnMC_INF_RGB444		(0x20 << 16)
++#define ICnMC_INF_RGB565		(0x22 << 16)
++#define ICnMC_INF_RGB666		(0x23 << 16)
++#define ICnMC_INF_RGB888		(0x24 << 16)
++#define ICnMC_INF_RAW8			(0x2A << 16)
++#define ICnMC_INF_RAW10			(0x2B << 16)
++#define ICnMC_INF_RAW12			(0x2C << 16)
++#define ICnMC_INF_RAW14			(0x2D << 16)
++#define ICnMC_INF_RAW16			(0x2E << 16)
+ #define ICnMC_INF_USER			(0x30 << 16)
+ #define ICnMC_VCSEL(x)			((x) << 22)
+ #define ICnMC_INF_MASK			GENMASK(21, 16)
++#define ICnMC_RAWSTTYP_RGRG		0
++#define ICnMC_RAWSTTYP_GRGR		BIT(24)
++#define ICnMC_RAWSTTYP_GBGB		BIT(25)
++#define ICnMC_RAWSTTYP_BGBG		(BIT(25) | BIT(24))
++#define ICnMC_RAWSTTYP_MASK		(BIT(25) | BIT(24))
++
++/* CRU Image Clipping Start Line Register */
++#define ICnSLPrC			0x210
++
++/* CRU Image Clipping End Line Register */
++#define ICnELPrC			0x214
++
++/* CRU Image Clipping Start Pixel Register */
++#define ICnSPPrC			0x218
++
++/* CRU Image Clipping End Pixel Register */
++#define ICnEPPrC			0x21C
++
++/* CRU Linear Matrix Offset register */
++#define ICnLMXOF			0x224
++#define ICnLMXOF_ROF(x)			(((x) & GENMASK(7, 0)) << 0)
++#define ICnLMXOF_GOF(x)			(((x) & GENMASK(7, 0)) << 8)
++#define ICnLMXOF_BOF(x)			(((x) & GENMASK(7, 0)) << 16)
++
++/* CRU Linear Matrix R Coefficient 1 Register */
++#define ICnLMXRC1			0x228
++#define ICnLMXRC1_RR(x)			(((x) & GENMASK(12, 0)) << 0)
++
++/* CRU Linear Matrix R Coefficient 2 Register */
++#define ICnLMXRC2			0x22C
++#define ICnLMXRC2_RG(x)			(((x) & GENMASK(12, 0)) << 0)
++#define ICnLMXRC2_RB(x)			(((x) & GENMASK(12, 0)) << 16)
++
++/* CRU Linear Matrix G Coefficient 1 Register */
++#define ICnLMXGC1			0x230
++#define ICnLMXGC1_GR(x)			(((x) & GENMASK(12, 0)) << 0)
++
++/* CRU Linear Matrix G Coefficient 2 Register */
++#define ICnLMXGC2			0x234
++#define ICnLMXGC2_GG(x)			(((x) & GENMASK(12, 0)) << 0)
++#define ICnLMXGC2_GB(x)			(((x) & GENMASK(12, 0)) << 16)
++
++/* CRU Linear Matrix B Coefficient 1 Register */
++#define ICnLMXBC1			0x238
++#define ICnLMXBC1_BR(x)			(((x) & GENMASK(12, 0)) << 0)
++
++/* CRU Linear Matrix B Coefficient 2 Register */
++#define ICnLMXBC2			0x23C
++#define ICnLMXBC2_BG(x)			(((x) & GENMASK(12, 0)) << 0)
++#define ICnLMXBC2_BB(x)			(((x) & GENMASK(12, 0)) << 16)
++
++/* CRU Statistics Control 1 Register */
++#define ICnSTIC1			0x240
++#define ICnSTIC1_STUNIT_MASK		0x3
++#define ICnSTIC1_STUNIT(x)		(x)
++#define ICnSTIC1_STSADPOS(x)		((x) << 16)
++
++/* CRU Statistics Control 2 Register */
++#define ICnSTIC2			0x244
++#define ICnSTIC2_STHPOS(x)		(x)
++
++/* CRU Parallel I/F Control Register */
++#define ICnPIFC				0x250
++#define ICnPIFC_PINF_UYVY8_BT656	0x0
++#define ICnPIFC_PINF_UYVY10_BT656	0x1
++#define ICnPIFC_PINF_YUYV16		0x2
++#define ICnPIFC_PINF_YVYU16		0x3
++#define ICnPIFC_PINF_UYVY8		0x4
++#define ICnPIFC_PINF_VYUY8		0x5
++#define ICnPIFC_PINF_YUYV8		0x6
++#define ICnPIFC_PINF_YVYU8		0x7
++#define ICnPIFC_PINF_UYVY10		0x8
++#define ICnPIFC_PINF_VYUY10		0x9
++#define ICnPIFC_PINF_YUYV10		0xA
++#define ICnPIFC_PINF_YVYU10		0xB
++#define ICnPIFC_PINF_RAW16		0xC
++#define ICnPIFC_ITL_PROGRESSIVE		(0 << 8)
++#define ICnPIFC_ITL_INTERLACED		(1 << 8)
++#define ICnPIFC_ITL_INTERLACED_TB	(1 << 8)
++#define ICnPIFC_ITL_INTERLACED_BT	(5 << 8)
++#define ICnPIFC_EC			BIT(12)
++#define ICnPIFC_VSPOL_HIGH		(0 << 13)
++#define ICnPIFC_VSPOL_LOW		BIT(13)
++#define ICnPIFC_ENPOL_HIGH		(0 << 14)
++#define ICnPIFC_ENPOL_LOW		BIT(14)
+ 
+ /* CRU Module Status Register */
+ #define ICnMS				0x254
++#define ICnMS_CA			BIT(0)
++#define ICnMS_AV			BIT(1)
+ #define ICnMS_IA			BIT(2)
+ 
+ /* CRU Data Output Mode Register */
+-#define ICnDMR				0x26c
++#define ICnDMR				0x26C
++#define ICnDMR_RGBMODE_RGB24		(0 << 0)
++#define ICnDMR_RGBMODE_XRGB32		(1 << 0)
++#define ICnDMR_RGBMODE_ABGR32		(2 << 0)
++#define ICnDMR_RGBMODE_ARGB32		(3 << 0)
++#define ICnDMR_YCMODE_YUYV		(0 << 4)
+ #define ICnDMR_YCMODE_UYVY		(1 << 4)
++#define ICnDMR_YCMODE_NV16		(2 << 4)
++#define ICnDMR_YCMODE_GREY		(3 << 4)
++
++/* CRU Test Image Generation Control 1 Register */
++#define ICnTICTRL1			0x2C0
++#define ICnTICTRL1_TIEN			BIT(0)
++#define ICnTICTRL1_TIMODE		BIT(1)
++#define ICnTICTRL1_TIPTNY1(x)		((x) << 4)
++#define ICnTICTRL1_TIPTNU1(x)		((x) << 8)
++#define ICnTICTRL1_TIPTNV1(x)		((x) << 12)
+ 
+ #define RZG2L_TIMEOUT_MS		100
+ #define RZG2L_RETRIES			10
+@@ -94,6 +277,20 @@
+ #define RZG2L_CRU_DEFAULT_FIELD		V4L2_FIELD_NONE
+ #define RZG2L_CRU_DEFAULT_COLORSPACE	V4L2_COLORSPACE_SRGB
+ 
++/**
++ * enum rzg2l_cru_fmt_types - DMA states
++ * @RZG2L_CRU_DMA_STOPPED:   No operation in progress
++ * @RZG2L_CRU_DMA_STARTING:  Capture starting up
++ * @RZG2L_CRU_DMA_RUNNING:   Operation in progress have buffers
++ * @RZG2L_CRU_DMA_STOPPING:  Stopping operation
++ */
++enum rzg2l_cru_fmt_types {
++	YUV = 0,
++	RGB,
++	BAYER_RAW,
++	USER_DEFINED,
++};
++
+ struct rzg2l_cru_buffer {
+ 	struct vb2_v4l2_buffer vb;
+ 	struct list_head list;
+@@ -197,7 +394,34 @@ static int rzg2l_cru_mc_validate_format(struct rzg2l_cru_dev *cru,
+ 		return -EPIPE;
+ 
+ 	switch (fmt.format.code) {
+-	case MEDIA_BUS_FMT_UYVY8_1X16:
++	case MEDIA_BUS_FMT_UYVY8_2X8:
++	case MEDIA_BUS_FMT_YUYV8_2X8:
++	case MEDIA_BUS_FMT_UYVY10_2X10:
++	case MEDIA_BUS_FMT_RGB444_1X12:
++	case MEDIA_BUS_FMT_RGB565_2X8_LE:
++	case MEDIA_BUS_FMT_RGB666_1X18:
++	case MEDIA_BUS_FMT_RGB888_1X24:
++	case MEDIA_BUS_FMT_BGR888_1X24:
++	case MEDIA_BUS_FMT_SRGGB8_1X8:
++	case MEDIA_BUS_FMT_SGRBG8_1X8:
++	case MEDIA_BUS_FMT_SGBRG8_1X8:
++	case MEDIA_BUS_FMT_SBGGR8_1X8:
++	case MEDIA_BUS_FMT_SRGGB10_1X10:
++	case MEDIA_BUS_FMT_SGRBG10_1X10:
++	case MEDIA_BUS_FMT_SGBRG10_1X10:
++	case MEDIA_BUS_FMT_SBGGR10_1X10:
++	case MEDIA_BUS_FMT_SRGGB12_1X12:
++	case MEDIA_BUS_FMT_SGRBG12_1X12:
++	case MEDIA_BUS_FMT_SGBRG12_1X12:
++	case MEDIA_BUS_FMT_SBGGR12_1X12:
++	case MEDIA_BUS_FMT_SRGGB14_1X14:
++	case MEDIA_BUS_FMT_SGRBG14_1X14:
++	case MEDIA_BUS_FMT_SGBRG14_1X14:
++	case MEDIA_BUS_FMT_SBGGR14_1X14:
++	case MEDIA_BUS_FMT_SRGGB16_1X16:
++	case MEDIA_BUS_FMT_SGRBG16_1X16:
++	case MEDIA_BUS_FMT_SGBRG16_1X16:
++	case MEDIA_BUS_FMT_SBGGR16_1X16:
+ 		break;
+ 	default:
+ 		return -EPIPE;
+@@ -289,18 +513,77 @@ static void rzg2l_cru_initialize_axi(struct rzg2l_cru_dev *cru)
+ 		rzg2l_cru_fill_hw_slot(cru, slot);
+ }
+ 
+-static void rzg2l_cru_csi2_setup(struct rzg2l_cru_dev *cru, bool *input_is_yuv,
++static void rzg2l_cru_csi2_setup(struct rzg2l_cru_dev *cru, enum rzg2l_cru_fmt_types *input_fmt,
+ 				 struct v4l2_mbus_framefmt *ip_sd_fmt)
+ {
+ 	u32 icnmc;
+ 
+ 	switch (ip_sd_fmt->code) {
+-	case MEDIA_BUS_FMT_UYVY8_1X16:
++	case MEDIA_BUS_FMT_UYVY8_2X8:
+ 		icnmc = ICnMC_INF_YUV8_422;
+-		*input_is_yuv = true;
++		*input_fmt = YUV;
++		break;
++	case MEDIA_BUS_FMT_YUYV8_2X8:
++		icnmc = ICnMC_INF_YUV8_422;
++		*input_fmt = YUV;
++		break;
++	case MEDIA_BUS_FMT_UYVY10_2X10:
++		icnmc = ICnMC_INF_YUV10_422;
++		*input_fmt = YUV;
++		break;
++	case MEDIA_BUS_FMT_RGB444_1X12:
++		icnmc = ICnMC_INF_RGB444;
++		*input_fmt = RGB;
++		break;
++	case MEDIA_BUS_FMT_RGB565_2X8_LE:
++		icnmc = ICnMC_INF_RGB565;
++		*input_fmt = RGB;
++		break;
++	case MEDIA_BUS_FMT_RGB666_1X18:
++		icnmc = ICnMC_INF_RGB666;
++		*input_fmt = RGB;
++		break;
++	case MEDIA_BUS_FMT_BGR888_1X24:
++		icnmc = ICnMC_INF_RGB888;
++		*input_fmt = RGB;
++		break;
++	case MEDIA_BUS_FMT_SRGGB8_1X8:
++	case MEDIA_BUS_FMT_SGRBG8_1X8:
++	case MEDIA_BUS_FMT_SGBRG8_1X8:
++	case MEDIA_BUS_FMT_SBGGR8_1X8:
++		icnmc = ICnMC_INF_RAW8;
++		*input_fmt = BAYER_RAW;
++		break;
++	case MEDIA_BUS_FMT_SRGGB10_1X10:
++	case MEDIA_BUS_FMT_SGRBG10_1X10:
++	case MEDIA_BUS_FMT_SGBRG10_1X10:
++	case MEDIA_BUS_FMT_SBGGR10_1X10:
++		icnmc = ICnMC_INF_RAW10;
++		*input_fmt = BAYER_RAW;
++		break;
++	case MEDIA_BUS_FMT_SRGGB12_1X12:
++	case MEDIA_BUS_FMT_SGRBG12_1X12:
++	case MEDIA_BUS_FMT_SGBRG12_1X12:
++	case MEDIA_BUS_FMT_SBGGR12_1X12:
++		icnmc = ICnMC_INF_RAW12;
++		*input_fmt = BAYER_RAW;
++		break;
++	case MEDIA_BUS_FMT_SRGGB14_1X14:
++	case MEDIA_BUS_FMT_SGRBG14_1X14:
++	case MEDIA_BUS_FMT_SGBRG14_1X14:
++	case MEDIA_BUS_FMT_SBGGR14_1X14:
++		icnmc = ICnMC_INF_RAW14;
++		*input_fmt = BAYER_RAW;
++		break;
++	case MEDIA_BUS_FMT_SRGGB16_1X16:
++	case MEDIA_BUS_FMT_SGRBG16_1X16:
++	case MEDIA_BUS_FMT_SGBRG16_1X16:
++	case MEDIA_BUS_FMT_SBGGR16_1X16:
++		icnmc = ICnMC_INF_RAW16;
++		*input_fmt = BAYER_RAW;
+ 		break;
+ 	default:
+-		*input_is_yuv = false;
++		*input_fmt = USER_DEFINED;
+ 		icnmc = ICnMC_INF_USER;
+ 		break;
+ 	}
+@@ -316,17 +599,70 @@ static void rzg2l_cru_csi2_setup(struct rzg2l_cru_dev *cru, bool *input_is_yuv,
+ static int rzg2l_cru_initialize_image_conv(struct rzg2l_cru_dev *cru,
+ 					   struct v4l2_mbus_framefmt *ip_sd_fmt)
+ {
+-	bool output_is_yuv = false;
+-	bool input_is_yuv = false;
+-	u32 icndmr;
++	enum rzg2l_cru_fmt_types output_fmt;
++	enum rzg2l_cru_fmt_types input_fmt;
++	u32 icndmr, icnmc;
+ 
+-	rzg2l_cru_csi2_setup(cru, &input_is_yuv, ip_sd_fmt);
++	rzg2l_cru_csi2_setup(cru, &input_fmt, ip_sd_fmt);
+ 
+ 	/* Output format */
+ 	switch (cru->format.pixelformat) {
++	case V4L2_PIX_FMT_YUYV:
++		icndmr = ICnDMR_YCMODE_YUYV;
++		output_fmt = YUV;
++		break;
+ 	case V4L2_PIX_FMT_UYVY:
+ 		icndmr = ICnDMR_YCMODE_UYVY;
+-		output_is_yuv = true;
++		output_fmt = YUV;
++		break;
++	case V4L2_PIX_FMT_GREY:
++		icndmr = ICnDMR_YCMODE_GREY;
++		output_fmt = YUV;
++		break;
++	case V4L2_PIX_FMT_NV16:
++		icndmr = ICnDMR_YCMODE_NV16;
++		output_fmt = YUV;
++		rzg2l_cru_write(cru, AMnUVAOFL,
++			ALIGN(cru->format.width * cru->format.height, 0x200));
++		break;
++	case V4L2_PIX_FMT_BGR24:
++		icndmr = ICnDMR_RGBMODE_RGB24;
++		output_fmt = RGB;
++		break;
++	case V4L2_PIX_FMT_XBGR32:
++		icndmr = ICnDMR_RGBMODE_XRGB32;
++		output_fmt = RGB;
++		break;
++	case V4L2_PIX_FMT_ABGR32:
++		icndmr = ICnDMR_RGBMODE_ABGR32;
++		output_fmt = RGB;
++		break;
++	case V4L2_PIX_FMT_ARGB32:
++		icndmr = ICnDMR_RGBMODE_ARGB32;
++		output_fmt = RGB;
++		break;
++	case V4L2_PIX_FMT_SGBRG8:
++	case V4L2_PIX_FMT_SGRBG8:
++	case V4L2_PIX_FMT_SRGGB8:
++	case V4L2_PIX_FMT_SBGGR8:
++	case V4L2_PIX_FMT_SGBRG10:
++	case V4L2_PIX_FMT_SGRBG10:
++	case V4L2_PIX_FMT_SRGGB10:
++	case V4L2_PIX_FMT_SBGGR10:
++	case V4L2_PIX_FMT_SGBRG12:
++	case V4L2_PIX_FMT_SGRBG12:
++	case V4L2_PIX_FMT_SRGGB12:
++	case V4L2_PIX_FMT_SBGGR12:
++	case V4L2_PIX_FMT_SGBRG14P:
++	case V4L2_PIX_FMT_SGRBG14P:
++	case V4L2_PIX_FMT_SRGGB14P:
++	case V4L2_PIX_FMT_SBGGR14P:
++	case V4L2_PIX_FMT_SGBRG16:
++	case V4L2_PIX_FMT_SGRBG16:
++	case V4L2_PIX_FMT_SRGGB16:
++	case V4L2_PIX_FMT_SBGGR16:
++		icndmr = 0;
++		output_fmt = BAYER_RAW;
+ 		break;
+ 	default:
+ 		dev_err(cru->dev, "Invalid pixelformat (0x%x)\n",
+@@ -334,13 +670,74 @@ static int rzg2l_cru_initialize_image_conv(struct rzg2l_cru_dev *cru,
+ 		return -EINVAL;
+ 	}
+ 
+-	/* If input and output use same colorspace, do bypass mode */
+-	if (output_is_yuv == input_is_yuv)
+-		rzg2l_cru_write(cru, ICnMC,
+-				rzg2l_cru_read(cru, ICnMC) | ICnMC_CSCTHR);
+-	else
++	/*
++	 * CRU can perform:
++	 * - Colorspace coversion: YUV <=> RGB.
++	 * - Demosaicing from RAW data to RGB.
++	 * To output YUV color format from RAW data input, we must process
++	 * demosaicing and colorspace conversion.
++	 * Do bypass mode for the remained mode.
++	 */
++	icnmc = rzg2l_cru_read(cru, ICnMC);
++	if (output_fmt == input_fmt)
++		rzg2l_cru_write(cru, ICnMC, icnmc | ICnMC_CSCTHR |
++				ICnMC_DEMTHR);
++	else if (((output_fmt == YUV) && (input_fmt == RGB)) ||
++		 ((output_fmt == RGB) && (input_fmt == YUV)))
+ 		rzg2l_cru_write(cru, ICnMC,
+-				rzg2l_cru_read(cru, ICnMC) & (~ICnMC_CSCTHR));
++				(icnmc | ICnMC_DEMTHR) & ~ICnMC_CSCTHR);
++	else if ((input_fmt == BAYER_RAW) && (output_fmt == RGB))
++		rzg2l_cru_write(cru, ICnMC, icnmc & ~ICnMC_DEMTHR);
++	else if ((input_fmt == BAYER_RAW) && (output_fmt == YUV))
++		rzg2l_cru_write(cru, ICnMC, icnmc &
++				~(ICnMC_CSCTHR | ICnMC_DEMTHR));
++	else {
++		dev_err(cru->dev, "Not support color space conversion for (0x%x)\n",
++			cru->format.pixelformat);
++		return -ENOEXEC;
++	}
++
++	icnmc = rzg2l_cru_read(cru, ICnMC);
++	if (!(icnmc & ICnMC_DEMTHR)) {
++		icnmc &= ~ICnMC_RAWSTTYP_MASK;
++
++		switch (ip_sd_fmt->code) {
++		case MEDIA_BUS_FMT_SRGGB8_1X8:
++		case MEDIA_BUS_FMT_SRGGB10_1X10:
++		case MEDIA_BUS_FMT_SRGGB12_1X12:
++		case MEDIA_BUS_FMT_SRGGB14_1X14:
++		case MEDIA_BUS_FMT_SRGGB16_1X16:
++			rzg2l_cru_write(cru, ICnMC, icnmc |
++					ICnMC_RAWSTTYP_RGRG);
++			break;
++		case MEDIA_BUS_FMT_SGRBG8_1X8:
++		case MEDIA_BUS_FMT_SGRBG10_1X10:
++		case MEDIA_BUS_FMT_SGRBG12_1X12:
++		case MEDIA_BUS_FMT_SGRBG14_1X14:
++		case MEDIA_BUS_FMT_SGRBG16_1X16:
++			rzg2l_cru_write(cru, ICnMC, icnmc |
++					ICnMC_RAWSTTYP_GRGR);
++			break;
++		case MEDIA_BUS_FMT_SGBRG8_1X8:
++		case MEDIA_BUS_FMT_SGBRG10_1X10:
++		case MEDIA_BUS_FMT_SGBRG12_1X12:
++		case MEDIA_BUS_FMT_SGBRG14_1X14:
++		case MEDIA_BUS_FMT_SGBRG16_1X16:
++			rzg2l_cru_write(cru, ICnMC, icnmc |
++					ICnMC_RAWSTTYP_GBGB);
++			break;
++		case MEDIA_BUS_FMT_SBGGR8_1X8:
++		case MEDIA_BUS_FMT_SBGGR10_1X10:
++		case MEDIA_BUS_FMT_SBGGR12_1X12:
++		case MEDIA_BUS_FMT_SBGGR14_1X14:
++		case MEDIA_BUS_FMT_SBGGR16_1X16:
++			rzg2l_cru_write(cru, ICnMC, icnmc |
++					ICnMC_RAWSTTYP_BGBG);
++			break;
++		default:
++			break;
++		}
++	}
+ 
+ 	/* Set output data format */
+ 	rzg2l_cru_write(cru, ICnDMR, icndmr);
+@@ -404,7 +801,7 @@ void rzg2l_cru_stop_image_processing(struct rzg2l_cru_dev *cru)
+ 			break;
+ 
+ 		usleep_range(10, 20);
+-	}
++	};
+ 
+ 	/* Notify that AXI bus can not stop here */
+ 	if (!retries)
+@@ -789,10 +1186,118 @@ int rzg2l_cru_dma_register(struct rzg2l_cru_dev *cru)
+  */
+ 
+ static const struct v4l2_format_info rzg2l_cru_formats[] = {
++	{
++		.format = V4L2_PIX_FMT_NV16,
++		.bpp[0] = 1,
++	},
++	{
++		.format = V4L2_PIX_FMT_GREY,
++		.bpp[0] = 1,
++	},
++	{
++		.format = V4L2_PIX_FMT_YUYV,
++		.bpp[0] = 2,
++	},
+ 	{
+ 		.format = V4L2_PIX_FMT_UYVY,
+ 		.bpp[0] = 2,
+ 	},
++	{
++		.format = V4L2_PIX_FMT_BGR24,
++		.bpp[0] = 3,
++	},
++	{
++		.format = V4L2_PIX_FMT_XBGR32,
++		.bpp[0] = 4,
++	},
++	{
++		.format = V4L2_PIX_FMT_ABGR32,
++		.bpp[0] = 4,
++	},
++	{
++		.format = V4L2_PIX_FMT_ARGB32,
++		.bpp[0] = 4,
++	},
++	{
++		.format = V4L2_PIX_FMT_SRGGB8,
++		.bpp[0] = 1,
++	},
++	{
++		.format = V4L2_PIX_FMT_SBGGR8,
++		.bpp[0] = 1,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGRBG8,
++		.bpp[0] = 1,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGBRG8,
++		.bpp[0] = 1,
++	},
++	{
++		.format = V4L2_PIX_FMT_SRGGB10,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SBGGR10,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGRBG10,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGBRG10,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SRGGB12,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SBGGR12,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGRBG12,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGBRG12,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SRGGB14P,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SBGGR14P,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGRBG14P,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGBRG14P,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SRGGB16,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SBGGR16,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGRBG16,
++		.bpp[0] = 2,
++	},
++	{
++		.format = V4L2_PIX_FMT_SGBRG16,
++		.bpp[0] = 2,
++	},
+ };
+ 
+ const struct v4l2_format_info *rzg2l_cru_format_from_pixel(u32 format)
+-- 
+2.46.1
+
