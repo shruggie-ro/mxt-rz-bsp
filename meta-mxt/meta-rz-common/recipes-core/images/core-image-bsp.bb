@@ -30,6 +30,12 @@ IMAGE_INSTALL:append = " \
     yavta \
     kernel-modules \
     watchdog \
+    v4l-utils \
+    libcamera \
+    ustreamer \
+    gstreamer1.0 \
+    gstreamer1.0-plugins-base \
+    media-ctl \
 "
 
 # Additional tools for support Tool develop
