@@ -22,3 +22,11 @@ SRC_URI:append = " \
 do_compile:prepend() {
     cp -rf ${WORKDIR}/rzv2l-dts/* ${S}/arch/arm64/boot/dts/renesas/
 }
+
+do_install:append() {
+	# Symlink the OV5647 DT to '/boot/r9a07g054l2-smarc.dtb'
+	# This way we get a booting system, even if the camera is not the same
+	install -m 0755 -d ${D}/boot
+	ln -s rzv2l-vision-ai-ov5647.dtb ${D}/boot/r9a07g054l2-ov5647-smarc.dtb
+	ln -s rzv2l-vision-ai-ov5647.dtb ${D}/boot/r9a07g054l2-smarc.dtb
+}
