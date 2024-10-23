@@ -33,6 +33,7 @@ SRC_URI = " \
 	file://0005-media-i2c-Add-driver-of-Arducam-Pivariety-series-cam.patch \
 	file://0006-media-i2c-arducam-pivariety-Fixup-for-mainline-API-c.patch \
 	file://0007-media-i2c-arducam-pivariety-Add-custom-controls.patch \
+	file://0008-drivers-media-i2c-add-support-for-Sony-IMX135-camera.patch \
 "
 
 KBUILD_DEFCONFIG = "defconfig"
