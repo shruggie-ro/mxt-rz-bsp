@@ -8,7 +8,13 @@
 /dts-v1/;
 #include "rzv2l-vision-ai.dts"
 
-#if CAMERA_SUPPORT_NOT_READY_YET
+/ {
+	clk_ext_camera: clk_ext_camera {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
 
 &i2c1 {
 	pinctrl-0 = <&i2c1_pins>;
@@ -22,9 +28,7 @@
 		clock-names = "xclk";
 		clocks = <&clk_ext_camera>;
 		clock-frequency = <24000000>;
-		VANA-supply = <&cam1_2v8_supply>;
-		VDIG-supply = <&cam1_1v8_supply>;
-		VDDL-supply = <&cam1_1v2_supply>;
+		reset-gpios = <&pinctrl RZG2L_GPIO(42, 3) GPIO_ACTIVE_HIGH>;
 
 		port {
 			cam1_to_csi: endpoint {
@@ -36,6 +40,10 @@
 		};
 	};
 
+};
+
+&cru {
+	status = "okay";
 };
 
 &csi2 {
@@ -51,5 +59,3 @@
 		};
 	};
 };
-
-#endif
