@@ -30,6 +30,9 @@ SRC_URI = " \
 	file://0002-rzg2l-cru-backport-driver-from-upstream-kernel.patch \
 	file://0003-clk-rzg2l-cpg-backport-support-from-upstream-kernel.patch \
 	file://0004-media-rzg2l-cru-port-stuff-from-Renesas-BSP-driver.patch \
+	file://0005-media-i2c-Add-driver-of-Arducam-Pivariety-series-cam.patch \
+	file://0006-media-i2c-arducam-pivariety-Fixup-for-mainline-API-c.patch \
+	file://0007-media-i2c-arducam-pivariety-Add-custom-controls.patch \
 "
 
 KBUILD_DEFCONFIG = "defconfig"
