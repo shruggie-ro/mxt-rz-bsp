@@ -8,8 +8,6 @@
 /dts-v1/;
 #include "rzv2l-vision-ai.dts"
 
-#if CAMERA_SUPPORT_NOT_READY_YET
-
 &i2c1 {
 	pinctrl-0 = <&i2c1_pins>;
 	pinctrl-names = "default";
@@ -19,12 +17,11 @@
 	tevs: camera@48 {
 		compatible = "tn,tevs";
 		reg = <0x48>;
-
-		reset-gpios = <&pinctrl RZG2L_GPIO(42, 3) GPIO_ACTIVE_LOW>;
 		continuous-clock = <0>;
 		data-lanes = <2>;
 		data-frequency = <800>;
 		hw-reset; // keep the camera off, when unused
+		reset-gpios = <&pinctrl RZG2L_GPIO(42, 3) GPIO_ACTIVE_LOW>;
 
 		port {
 			cam1_to_csi: endpoint {
@@ -35,6 +32,10 @@
 		};
 	};
 
+};
+
+&cru {
+	status = "okay";
 };
 
 &csi2 {
@@ -50,5 +51,3 @@
 		};
 	};
 };
-
-#endif
