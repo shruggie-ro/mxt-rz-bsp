@@ -1126,7 +1126,7 @@ index 000000000..2fa665f4f
 +};
 +
 +static const u32 tevs_pixel_rates[] = {
-+	200000000,
++	180000000,
 +};
 +
 +static const char *const awb_mode_strings[] = {
