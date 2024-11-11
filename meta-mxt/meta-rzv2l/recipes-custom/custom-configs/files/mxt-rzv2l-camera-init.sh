@@ -81,11 +81,14 @@ if media-ctl -d /dev/media0 -V "'imx219 1-0010':0 [fmt:SRGGB10_1X10/640x480 fiel
 	exit 0
 fi
 
-# FIXME: needs testing
-if media-ctl -d /dev/media0 -V "'imx296 1-001a':0 [fmt:SRGGB10_1X10/640x480 field:none]" &> /dev/null ; then
+# CROP can be set to 'crop:(408,304)/640x480 ' to get 640x480 here
+if media-ctl -d /dev/media0 -V "'imx296 1-001a':0 [fmt:SRGGB10_1X10/1456x1088 field:none crop:(0,0)/1280x720]" &> /dev/null ; then
 	echo "Using camera is 'imx296 1-001a':0"
-	media-ctl -d /dev/media0 -V "'${CSI2_DEV}':1 [fmt:SRGGB10_1X10/640x480 field:none]"
+	media-ctl -d /dev/media0 -V "'${CSI2_DEV}':1 [fmt:SRGGB10_1X10/1456x1088 field:none]"
 	media-ctl -d /dev/media0 -l "'${CSI2_DEV}':1 -> '${CRU_OUTPUT}':0 [1]"
+
+	v4l2_set_sensor_control "imx296 1-001a" --set-ctrl=analogue_gain=200
+	v4l2_set_sensor_control "imx296 1-001a" --set-ctrl=exposure=500
 
 	exit 0
 fi
