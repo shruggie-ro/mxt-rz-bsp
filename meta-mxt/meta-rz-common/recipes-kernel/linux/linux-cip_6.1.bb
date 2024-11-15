@@ -36,6 +36,7 @@ SRC_URI = " \
 	file://0008-drivers-media-i2c-add-support-for-Sony-IMX135-camera.patch \
 	file://0009-drivers-media-i2c-add-support-for-TechNexion-TEVS-ca.patch \
 	file://0010-media-i2c-IMX296-camera-sensor-driver.patch \
+	file://0011-media-i2c-imx296-Implement-simple-retry-for-model-id.patch \
 "
 
 KBUILD_DEFCONFIG = "defconfig"

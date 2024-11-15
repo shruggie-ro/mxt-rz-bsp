@@ -1,0 +1,94 @@
+From 5e5e1aac2e5dcc945cd67195da07db190d4ec3a8 Mon Sep 17 00:00:00 2001
+From: Alexandru Ardelean <alex@shruggie.ro>
+Date: Fri, 15 Nov 2024 16:10:08 +0200
+Subject: [PATCH] media: i2c: imx296: Implement simple retry for model
+ identification
+
+On a cold boot of the device (and sensor), and when using the 'sony,imx296'
+compatible string, it often seems that I get 'invalid device model 0x0000'.
+After doing a soft reboot, it seems to work fine.
+
+After applying this change (to do several retries), the sensor is
+identified on the first cold boot. The assumption here would be that the
+wake-up from standby takes too long. But even trying a 'udelay(100)' after
+writing register IMX296_CTRL00 doesn't seem to help (100 microseconds
+should be a reasonable fixed time).
+
+However, after implementing the retry loop (as this patch does it), seems
+to resolve the issue on the cold boot, and the device is identified.
+
+When using the 'sony,imx296ll' and 'sony,imx296lq' compatible strings, the
+device identification process isn't happening, and the sensor works fine.
+
+Signed-off-by: Alexandru Ardelean <aardelean@baylibre.com>
+---
+ drivers/media/i2c/imx296.c | 44 ++++++++++++++++++++++----------------
+ 1 file changed, 26 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/media/i2c/imx296.c b/drivers/media/i2c/imx296.c
+index 83149fa729c4..9c3641c005a4 100644
+--- a/drivers/media/i2c/imx296.c
++++ b/drivers/media/i2c/imx296.c
+@@ -931,7 +931,7 @@ static int imx296_read_temperature(struct imx296 *sensor, int *temp)
+ static int imx296_identify_model(struct imx296 *sensor)
+ {
+ 	unsigned int model;
+-	int temp = 0;
++	int temp = 0, retries;
+ 	int ret;
+ 
+ 	model = (uintptr_t)of_device_get_match_data(sensor->dev);
+@@ -943,25 +943,33 @@ static int imx296_identify_model(struct imx296 *sensor)
+ 		return 0;
+ 	}
+ 
+-	/*
+-	 * While most registers can be read when the sensor is in standby, this
+-	 * is not the case of the sensor info register :-(
+-	 */
+-	ret = imx296_write(sensor, IMX296_CTRL00, 0, NULL);
+-	if (ret < 0) {
+-		dev_err(sensor->dev,
+-			"failed to get sensor out of standby (%d)\n", ret);
+-		return ret;
+-	}
++	retries = 0;
++	do {
++		/*
++		 * While most registers can be read when the sensor is in
++		 * standby, this is not the case of the sensor info register :-(
++		 */
++		ret = imx296_write(sensor, IMX296_CTRL00, 0, NULL);
++		if (ret < 0) {
++			dev_err(sensor->dev,
++				"failed to get sensor out of standby (%d)\n",
++				ret);
++			return ret;
++		}
+ 
+-	ret = imx296_read(sensor, IMX296_SENSOR_INFO);
+-	if (ret < 0) {
+-		dev_err(sensor->dev, "failed to read sensor information (%d)\n",
+-			ret);
+-		goto done;
+-	}
++		udelay(10);
++
++		ret = imx296_read(sensor, IMX296_SENSOR_INFO);
++		if (ret < 0) {
++			dev_err(sensor->dev,
++				"failed to read sensor information (%d)\n",
++				ret);
++			goto done;
++		}
++
++		model = (ret >> 6) & 0x1ff;
++	} while (model == 0 && retries++ < 3);
+ 
+-	model = (ret >> 6) & 0x1ff;
+ 
+ 	switch (model) {
+ 	case 296:
+-- 
+2.46.1
+
