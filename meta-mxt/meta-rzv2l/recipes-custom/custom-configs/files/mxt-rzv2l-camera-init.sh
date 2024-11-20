@@ -52,6 +52,16 @@ if media-ctl -d /dev/media0 -V "'imx415 1-001a':0 [fmt:SGBRG10_1X10/1920x1080 fi
 	exit 0
 fi
 
+if media-ctl -d /dev/media0 -V "'ov13850 1-0036':0 [fmt:SBGGR10_1X10/2112x1568 field:none crop:(96,244)/1920x1080]" &> /dev/null ; then
+	echo "Using camera is 'ov13850 1-0036':0"
+	media-ctl -d /dev/media0 -V "'${CSI2_DEV}':1 [fmt:SBGGR10_1X10/1920x1080 field:none]"
+	media-ctl -d /dev/media0 -l "'${CSI2_DEV}':1 -> '${CRU_OUTPUT}':0 [1]"
+
+	v4l2_set_sensor_control "ov13850 1-0036" --set-ctrl=analogue_gain=500
+
+	exit 0
+fi
+
 if media-ctl -d /dev/media0 -V "'ov5647 1-0036':0 [fmt:SBGGR10_1X10/640x480 field:none]" &> /dev/null ; then
 	echo "Using camera is 'ov5647 1-0036':0"
 	media-ctl -d /dev/media0 -V "'${CSI2_DEV}':1 [fmt:SBGGR10_1X10/640x480 field:none]"

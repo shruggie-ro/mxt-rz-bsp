@@ -37,6 +37,7 @@ SRC_URI = " \
 	file://0009-drivers-media-i2c-add-support-for-TechNexion-TEVS-ca.patch \
 	file://0010-media-i2c-IMX296-camera-sensor-driver.patch \
 	file://0011-media-i2c-imx296-Implement-simple-retry-for-model-id.patch \
+	file://0012-media-i2c-ov13850-add-driver-for-OmniVision-OV13850.patch \
 "
 
 KBUILD_DEFCONFIG = "defconfig"

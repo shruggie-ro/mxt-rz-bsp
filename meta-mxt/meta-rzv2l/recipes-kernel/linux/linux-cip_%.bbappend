@@ -11,6 +11,7 @@ KERNEL_DEVICETREE:append = " \
     renesas/rzv2l-vision-ai-imx296.dtb \
     renesas/rzv2l-vision-ai-imx477.dtb \
     renesas/rzv2l-vision-ai-imx708.dtb \
+    renesas/rzv2l-vision-ai-ov13850.dtb \
     renesas/rzv2l-vision-ai-ov5647.dtb \
     renesas/rzv2l-vision-ai-pivariety.dtb \
     renesas/rzv2l-vision-ai-tevs.dtb \
